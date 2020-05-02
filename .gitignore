@@ -1,0 +1,6 @@
+bin/
+*.ld
+*.elf
+*.bin
+*.hex
+
