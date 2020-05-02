@@ -3,4 +3,7 @@ bin/
 *.elf
 *.bin
 *.hex
+*.d
+*.o
+*.map
 
