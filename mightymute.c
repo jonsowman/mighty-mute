@@ -202,6 +202,7 @@ int main(void)
 	rcc_clock_setup_pll(&rcc_hse_12mhz_3v3[RCC_CLOCK_3V3_84MHZ]);
 
 	rcc_periph_clock_enable(RCC_GPIOA);
+	rcc_periph_clock_enable(RCC_GPIOC);
   	rcc_periph_clock_enable(RCC_OTGFS);
 	/*
 	 * This is a somewhat common cheap hack to trigger device re-enumeration

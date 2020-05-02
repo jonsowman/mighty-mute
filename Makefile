@@ -18,19 +18,9 @@
 ##
 
 BINARY = mightymute
-#DEFS += -DSTM32F4
-#BUILD_DIR = bin
-#SHARED_DIR = .
-
-CFILES += main.c
 
 DEVICE = stm32f401ret6
 
-# You shouldn't have to edit anything below here.
-#VPATH += $(SHARED_DIR)
-#INCLUDES += $(patsubst %,-I%, . $(SHARED_DIR))
-#OPENCM3_DIR=libopencm3
+BMP_PORT ?= /dev/serial/by-id/usb-Black_Sphere_Technologies_Black_Magic_Probe_E2C2B5C5-if00 
 
-#include $(OPENCM3_DIR)/mk/genlink-config.mk
 include rules.mk
-#include $(OPENCM3_DIR)/mk/genlink-rules.mk
