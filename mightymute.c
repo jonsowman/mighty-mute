@@ -19,6 +19,7 @@
 
 #include <stdlib.h>
 #include <libopencm3/cm3/nvic.h>
+#include <libopencm3/stm32/exti.h>
 #include <libopencm3/cm3/systick.h>
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/gpio.h>
@@ -188,12 +189,6 @@ static void hid_set_config(usbd_device *dev, uint16_t wValue)
 				USB_REQ_TYPE_STANDARD | USB_REQ_TYPE_INTERFACE,
 				USB_REQ_TYPE_TYPE | USB_REQ_TYPE_RECIPIENT,
 				hid_control_request);
-
-	systick_set_clocksource(STK_CSR_CLKSOURCE_AHB_DIV8);
-	/* SysTick interrupt every N clock pulses: set reload to N-1 */
-	systick_set_reload(99999);
-	systick_interrupt_enable();
-	systick_counter_enable();
 }
 
 int main(void)
@@ -204,27 +199,18 @@ int main(void)
 	rcc_periph_clock_enable(RCC_GPIOA);
 	rcc_periph_clock_enable(RCC_GPIOC);
   	rcc_periph_clock_enable(RCC_OTGFS);
-	/*
-	 * This is a somewhat common cheap hack to trigger device re-enumeration
-	 * on startup.  Assuming a fixed external pullup on D+, (For USB-FS)
-	 * setting the pin to output, and driving it explicitly low effectively
-	 * "removes" the pullup.  The subsequent USB init will "take over" the
-	 * pin, and it will appear as a proper pullup to the host.
-	 * The magic delay is somewhat arbitrary, no guarantees on USBIF
-	 * compliance here, but "it works" in most places.
-	 */
-    /*
-	gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_2_MHZ,
-		GPIO_CNF_OUTPUT_PUSHPULL, GPIO12);
-	gpio_clear(GPIOA, GPIO12);
-	for (unsigned i = 0; i < 800000; i++) {
-		__asm__("nop");
-	}
-    */
+    rcc_periph_clock_enable(RCC_SYSCFG);
 
     /* Set GPIO mode for LED */
     gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO2);
     gpio_set(GPIOC, GPIO2);
+
+    /* Set GPIO for button and IRQ */
+    gpio_mode_setup(GPIOC, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO4);
+    nvic_enable_irq(NVIC_EXTI4_IRQ);
+    exti_select_source(EXTI4, GPIOC);
+    exti_set_trigger(EXTI4, EXTI_TRIGGER_FALLING);
+    exti_enable_request(EXTI4);
 
     /* Set GPIO modes for USB D+ and D- */
     gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO11 | GPIO12);
@@ -237,18 +223,11 @@ int main(void)
 		usbd_poll(usbd_dev);
 }
 
-void sys_tick_handler(void)
+void exti4_isr(void)
 {
-	static int x = 0;
-	static int dir = 1;
-	uint8_t buf[4] = {0, 0, 0, 0};
-
-	buf[1] = dir;
-	x += dir;
-	if (x > 30)
-		dir = -dir;
-	if (x < -30)
-		dir = -dir;
-
+    exti_reset_request(EXTI4);
+    uint8_t buf[] = {0, 30, 0, 0};
 	usbd_ep_write_packet(usbd_dev, 0x81, buf, 4);
+    return;
 }
+
