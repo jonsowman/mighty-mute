@@ -45,6 +45,7 @@ const struct usb_device_descriptor dev_descr = {
 	.bNumConfigurations = 1,
 };
 
+#if 0
 static const uint8_t hid_report_descriptor[] = {
 	0x05, 0x01, /* USAGE_PAGE (Generic Desktop)         */
 	0x09, 0x02, /* USAGE (Mouse)                        */
@@ -85,6 +86,47 @@ static const uint8_t hid_report_descriptor[] = {
 	0xb1, 0x01, /*   FEATURE (Cnst,Ary,Abs)             */
 	0xc0        /* END_COLLECTION                       */
 };
+#endif
+
+static const uint8_t hid_report_descriptor[] = {
+0x05, 0x01, // USAGE_PAGE (Generic Desktop)
+0x09, 0x06, // USAGE (Keyboard)
+0xa1, 0x01, // COLLECTION (Application)
+0x95, 0x08, // Report count: 8
+0x75, 0x01, // Report size: 1
+0x15, 0x00, // Logical minimum (0)
+0x25, 0x01, // Logical maximum (1)
+0x05, 0x07, // Usage: keyboard/keypad
+0x19, 0xe0, // USAGE_MINIMUM (Keyboard LeftControl)
+0x29, 0xe7, // USAGE_MAXIMUM (Keyboard Right GUI)
+0x81, 0x02, // INPUT (Data,Var,Abs) //1 byte
+
+0x95, 0x01, // REPORT_COUNT (1)
+0x75, 0x08, // REPORT_SIZE (8)
+0x81, 0x01, // INPUT (Const,Var,Abs) //1 byte
+
+0x95, 0x05, // REPORT_COUNT (5)
+0x75, 0x01, // REPORT_SIZE (1)
+0x05, 0x08, // Usage: LEDs
+0x19, 0x01, // USAGE_MINIMUM
+0x29, 0x05, // USAGE_MAXIMUM
+0x91, 0x02, // OUTPUT (Data,Var,Abs)
+
+0x95, 0x01, // REPORT_COUNT (1)
+0x75, 0x03, // REPORT_SIZE (3)
+0x91, 0x01, // OUTPUT (Const,Arr,Abs)
+
+0x95, 0x06, // REPORT_COUNT (6)
+0x75, 0x08, // REPORT_SIZE (8)
+0x15, 0x00, // Logical minimum (0)
+0x25, 0xff, // Logical maximum (255)
+0x05, 0x07, // Usage: keyboard/keypad
+0x19, 0x00, // USAGE_MINIMUM
+0x29, 0xff, // USAGE_MAXIMUM
+0x81, 0x00, // Input (Data,Arr,Abs)
+
+0xc0 // END_COLLECTION
+};
 
 static const struct {
 	struct usb_hid_descriptor hid_descriptor;
@@ -96,7 +138,7 @@ static const struct {
 	.hid_descriptor = {
 		.bLength = sizeof(hid_function),
 		.bDescriptorType = USB_DT_HID,
-		.bcdHID = 0x0100,
+		.bcdHID = 0x0111,
 		.bCountryCode = 0,
 		.bNumDescriptors = 1,
 	},
@@ -111,8 +153,8 @@ const struct usb_endpoint_descriptor hid_endpoint = {
 	.bDescriptorType = USB_DT_ENDPOINT,
 	.bEndpointAddress = 0x81,
 	.bmAttributes = USB_ENDPOINT_ATTR_INTERRUPT,
-	.wMaxPacketSize = 4,
-	.bInterval = 0x20,
+	.wMaxPacketSize = 8,
+	.bInterval = 0x08,
 };
 
 const struct usb_interface_descriptor hid_iface = {
@@ -122,8 +164,8 @@ const struct usb_interface_descriptor hid_iface = {
 	.bAlternateSetting = 0,
 	.bNumEndpoints = 1,
 	.bInterfaceClass = USB_CLASS_HID,
-	.bInterfaceSubClass = 1, /* boot */
-	.bInterfaceProtocol = 2, /* mouse */
+	.bInterfaceSubClass = 0, /* no subclass */
+	.bInterfaceProtocol = 2, /* ? */
 	.iInterface = 0,
 
 	.endpoint = &hid_endpoint,
@@ -182,7 +224,7 @@ static void hid_set_config(usbd_device *dev, uint16_t wValue)
 	(void)wValue;
 	(void)dev;
 
-	usbd_ep_setup(dev, 0x81, USB_ENDPOINT_ATTR_INTERRUPT, 4, NULL);
+	usbd_ep_setup(dev, 0x81, USB_ENDPOINT_ATTR_INTERRUPT, 8, NULL);
 
 	usbd_register_control_callback(
 				dev,
@@ -223,11 +265,25 @@ int main(void)
 		usbd_poll(usbd_dev);
 }
 
+#define FLASH_DELAY 100000
+static void delay(void)
+{
+	int i;
+	for (i = 0; i < FLASH_DELAY; i++)       /* Wait a bit. */
+		__asm__("nop");
+}
+
 void exti4_isr(void)
 {
     exti_reset_request(EXTI4);
-    uint8_t buf[] = {0, 30, 0, 0};
-	usbd_ep_write_packet(usbd_dev, 0x81, buf, 4);
+    uint8_t buf[8] = {0};
+    //buf[0] = 0xe0;
+    buf[2] = 0x6f;
+	usbd_ep_write_packet(usbd_dev, 0x81, buf, 8);
+    delay();
+    buf[2] = 0;
+	usbd_ep_write_packet(usbd_dev, 0x81, buf, 8);
+    delay();
     return;
 }
 
