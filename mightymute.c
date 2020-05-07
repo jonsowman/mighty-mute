@@ -46,44 +46,33 @@ const struct usb_device_descriptor dev_descr = {
 };
 
 static const uint8_t hid_report_descriptor[] = {
-	0x05, 0x01, /* USAGE_PAGE (Generic Desktop)         */
-	0x09, 0x02, /* USAGE (Mouse)                        */
-	0xa1, 0x01, /* COLLECTION (Application)             */
-	0x09, 0x01, /*   USAGE (Pointer)                    */
-	0xa1, 0x00, /*   COLLECTION (Physical)              */
-	0x05, 0x09, /*     USAGE_PAGE (Button)              */
-	0x19, 0x01, /*     USAGE_MINIMUM (Button 1)         */
-	0x29, 0x03, /*     USAGE_MAXIMUM (Button 3)         */
-	0x15, 0x00, /*     LOGICAL_MINIMUM (0)              */
-	0x25, 0x01, /*     LOGICAL_MAXIMUM (1)              */
-	0x95, 0x03, /*     REPORT_COUNT (3)                 */
-	0x75, 0x01, /*     REPORT_SIZE (1)                  */
-	0x81, 0x02, /*     INPUT (Data,Var,Abs)             */
-	0x95, 0x01, /*     REPORT_COUNT (1)                 */
-	0x75, 0x05, /*     REPORT_SIZE (5)                  */
-	0x81, 0x01, /*     INPUT (Cnst,Ary,Abs)             */
-	0x05, 0x01, /*     USAGE_PAGE (Generic Desktop)     */
-	0x09, 0x30, /*     USAGE (X)                        */
-	0x09, 0x31, /*     USAGE (Y)                        */
-	0x09, 0x38, /*     USAGE (Wheel)                    */
-	0x15, 0x81, /*     LOGICAL_MINIMUM (-127)           */
-	0x25, 0x7f, /*     LOGICAL_MAXIMUM (127)            */
-	0x75, 0x08, /*     REPORT_SIZE (8)                  */
-	0x95, 0x03, /*     REPORT_COUNT (3)                 */
-	0x81, 0x06, /*     INPUT (Data,Var,Rel)             */
-	0xc0,       /*   END_COLLECTION                     */
-	0x09, 0x3c, /*   USAGE (Motion Wakeup)              */
-	0x05, 0xff, /*   USAGE_PAGE (Vendor Defined Page 1) */
-	0x09, 0x01, /*   USAGE (Vendor Usage 1)             */
-	0x15, 0x00, /*   LOGICAL_MINIMUM (0)                */
-	0x25, 0x01, /*   LOGICAL_MAXIMUM (1)                */
-	0x75, 0x01, /*   REPORT_SIZE (1)                    */
-	0x95, 0x02, /*   REPORT_COUNT (2)                   */
-	0xb1, 0x22, /*   FEATURE (Data,Var,Abs,NPrf)        */
-	0x75, 0x06, /*   REPORT_SIZE (6)                    */
-	0x95, 0x01, /*   REPORT_COUNT (1)                   */
-	0xb1, 0x01, /*   FEATURE (Cnst,Ary,Abs)             */
-	0xc0        /* END_COLLECTION                       */
+0x05, 0x0c, // Usage page: consumer
+0x09, 0x01, // Usage: generic desktop
+0xa1, 0x01, // Collection: application
+0x85, 0x01, // Report ID 0x01
+0x15, 0x00, // Logical min: 0
+0x25, 0x01, // Logical max: 1
+0x09, 0xe9, // Usage: volume up
+0x09, 0xea, // Usage: volume down
+0x75, 0x01, // Report size: 1
+0x95, 0x02, // Report count: 2
+0x81, 0x06, // Input (data, variable, relative)
+0x95, 0x06, // Report count: 6
+0x81, 0x01, // Input (constant, array, absolute)
+0xc0, // End collection 
+0x05, 0x0b, // Usage page: telephony
+0x09, 0x05, // Usage: headset
+0xa1, 0x01, // Collection: application
+0x85, 0x08, // Report ID: 0x08
+0x15, 0x00, // Logical min: 0
+0x25, 0x01, // Logical max: 1
+0x09, 0x2f, // Usage: phone mute
+0x75, 0x01, // Report size: 1
+0x95, 0x01, // Report count: 1
+0x81, 0x06, // Input (data, variable, relative)
+0x95, 0x07, // Report count: 7
+0x81, 0x01, // Input (constant, array, absolute)
+0xc0 // End collection
 };
 
 static const struct {
@@ -111,8 +100,8 @@ const struct usb_endpoint_descriptor hid_endpoint = {
 	.bDescriptorType = USB_DT_ENDPOINT,
 	.bEndpointAddress = 0x81,
 	.bmAttributes = USB_ENDPOINT_ATTR_INTERRUPT,
-	.wMaxPacketSize = 4,
-	.bInterval = 0x20,
+	.wMaxPacketSize = 37,
+	.bInterval = 0x01,
 };
 
 const struct usb_interface_descriptor hid_iface = {
@@ -122,8 +111,8 @@ const struct usb_interface_descriptor hid_iface = {
 	.bAlternateSetting = 0,
 	.bNumEndpoints = 1,
 	.bInterfaceClass = USB_CLASS_HID,
-	.bInterfaceSubClass = 1, /* boot */
-	.bInterfaceProtocol = 2, /* mouse */
+	.bInterfaceSubClass = 0, /* none */
+	.bInterfaceProtocol = 0, /* none */
 	.iInterface = 0,
 
 	.endpoint = &hid_endpoint,
@@ -182,7 +171,7 @@ static void hid_set_config(usbd_device *dev, uint16_t wValue)
 	(void)wValue;
 	(void)dev;
 
-	usbd_ep_setup(dev, 0x81, USB_ENDPOINT_ATTR_INTERRUPT, 4, NULL);
+	usbd_ep_setup(dev, 0x81, USB_ENDPOINT_ATTR_INTERRUPT, 37, NULL);
 
 	usbd_register_control_callback(
 				dev,
@@ -223,11 +212,24 @@ int main(void)
 		usbd_poll(usbd_dev);
 }
 
+#define FLASH_DELAY 10000
+static void delay(void)
+{
+	int i;
+	for (i = 0; i < FLASH_DELAY; i++)       /* Wait a bit. */
+		__asm__("nop");
+}
+
 void exti4_isr(void)
 {
     exti_reset_request(EXTI4);
-    uint8_t buf[] = {0, 30, 0, 0};
-	usbd_ep_write_packet(usbd_dev, 0x81, buf, 4);
+    uint8_t buf[2] = {0};
+    buf[0] = 0x08;
+    buf[1] = 1;
+	usbd_ep_write_packet(usbd_dev, 0x81, buf, 2);
+    delay();
+    buf[1] = 0;
+	usbd_ep_write_packet(usbd_dev, 0x81, buf, 2);
     return;
 }
 
